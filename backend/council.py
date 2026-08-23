@@ -22,7 +22,7 @@ async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
 
     # Format results
     stage1_results = []
-    for model, response in responses.items():
+    for model, response in responses:
         if response is not None:  # Only include successful responses
             stage1_results.append({
                 "model": model,
@@ -99,7 +99,7 @@ Now provide your evaluation and ranking:"""
 
     # Format results
     stage2_results = []
-    for model, response in responses.items():
+    for model, response in responses:
         if response is not None:
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)

@@ -11,15 +11,16 @@ LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODELS` (list of Claude model identifiers, e.g. Opus/Sonnet/Haiku variants)
-- Contains `CHAIRMAN_MODEL` (model that synthesizes final answer)
+- Contains `COUNCIL_MODELS` (list of Claude model identifiers; all 4 seats currently use `claude-opus-5`)
+- Contains `CHAIRMAN_MODEL` (model that synthesizes final answer, also `claude-opus-5`)
+- Contains `MODEL_EFFORT` ("high") - passed as `output_config.effort` on every request
 - Uses environment variable `ANTHROPIC_API_KEY` from `.env`
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
 **`claude_client.py`**
 - Uses the official `anthropic` Python SDK (`AsyncAnthropic`)
-- `query_model()`: Single async model query via `messages.create()`
-- `query_models_parallel()`: Parallel queries using `asyncio.gather()`
+- `query_model()`: Single async model query via `messages.create()`, passes `output_config={"effort": ...}`
+- `query_models_parallel()`: Parallel queries using `asyncio.gather()`. Returns a **list** of `(model, response)` tuples (NOT a dict) so duplicate model identifiers (e.g. 4 council seats all using `claude-opus-5`) don't collide/overwrite each other
 - Returns dict with 'content' (concatenated text blocks from the response)
 - Graceful degradation: returns None on failure, continues with successful responses
 
@@ -94,7 +95,7 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 
 ### De-anonymization Strategy
 - Models receive: "Response A", "Response B", etc.
-- Backend creates mapping: `{"Response A": "claude-opus-4-1-20250805", ...}`
+- Backend creates mapping: `{"Response A": "claude-opus-5", ...}`
 - Frontend displays model names in **bold** for readability
 - Users see explanation that original evaluation used anonymous labels
 - This prevents bias while maintaining transparency
@@ -124,7 +125,7 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
 ### Model Configuration
-Models are hardcoded in `backend/config.py` as Claude model identifiers (Opus/Sonnet/Haiku). Chairman can be any of the configured models. The current default chairman is `claude-opus-4-1-20250805`.
+All council seats and the chairman are hardcoded in `backend/config.py` to `claude-opus-5` at `MODEL_EFFORT = "high"`. Since all seats share the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
 
 ## Common Gotchas
 

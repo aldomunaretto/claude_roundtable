@@ -48,13 +48,14 @@ Edit `backend/config.py` to customize the council:
 
 ```python
 COUNCIL_MODELS = [
-    "claude-opus-4-1-20250805",
-    "claude-sonnet-4-5-20250929",
-    "claude-3-7-sonnet-20250219",
-    "claude-3-5-haiku-20241022",
+    "claude-opus-5",
+    "claude-opus-5",
+    "claude-opus-5",
+    "claude-opus-5",
 ]
 
-CHAIRMAN_MODEL = "claude-opus-4-1-20250805"
+CHAIRMAN_MODEL = "claude-opus-5"
+MODEL_EFFORT = "high"
 ```
 
 ## Running the Application

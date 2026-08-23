@@ -8,16 +8,19 @@ load_dotenv()
 # Anthropic API key
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-# Council members - list of Claude model identifiers
+# Council members - all seats use Claude Opus 5
 COUNCIL_MODELS = [
-    "claude-opus-4-1-20250805",
-    "claude-sonnet-4-5-20250929",
-    "claude-3-7-sonnet-20250219",
-    "claude-3-5-haiku-20241022",
+    "claude-opus-5",
+    "claude-opus-5",
+    "claude-opus-5",
+    "claude-opus-5",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "claude-opus-4-1-20250805"
+CHAIRMAN_MODEL = "claude-opus-5"
+
+# Effort level applied to every request (max token/reasoning spend)
+MODEL_EFFORT = "high"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
