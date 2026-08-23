@@ -10,18 +10,6 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Load conversations on mount
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  // Load conversation details when selected
-  useEffect(() => {
-    if (currentConversationId) {
-      loadConversation(currentConversationId);
-    }
-  }, [currentConversationId]);
-
   const loadConversations = async () => {
     try {
       const convs = await api.listConversations();
@@ -39,6 +27,20 @@ function App() {
       console.error('Failed to load conversation:', error);
     }
   };
+
+  // Load conversations on mount
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-mount
+    loadConversations();
+  }, []);
+
+  // Load conversation details when selected
+  useEffect(() => {
+    if (currentConversationId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional fetch-on-change
+      loadConversation(currentConversationId);
+    }
+  }, [currentConversationId]);
 
   const handleNewConversation = async () => {
     try {

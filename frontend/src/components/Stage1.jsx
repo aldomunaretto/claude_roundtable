@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { formatModelName } from '../modelNames';
 import './Stage1.css';
 
 export default function Stage1({ responses }) {
@@ -20,7 +21,7 @@ export default function Stage1({ responses }) {
             className={`tab ${activeTab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
           >
-            {resp.model.split('/')[1] || resp.model}
+            {formatModelName(resp.model)}
           </button>
         ))}
       </div>

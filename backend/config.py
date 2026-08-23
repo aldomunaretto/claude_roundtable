@@ -5,22 +5,19 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# OpenRouter API key
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+# Anthropic API key
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-# Council members - list of OpenRouter model identifiers
+# Council members - list of Claude model identifiers
 COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
+    "claude-opus-4-1-20250805",
+    "claude-sonnet-4-5-20250929",
+    "claude-3-7-sonnet-20250219",
+    "claude-3-5-haiku-20241022",
 ]
 
 # Chairman model - synthesizes final response
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
-
-# OpenRouter API endpoint
-OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+CHAIRMAN_MODEL = "claude-opus-4-1-20250805"
 
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
