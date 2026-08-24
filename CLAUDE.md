@@ -27,16 +27,19 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 - Graceful degradation: returns None on failure, continues with successful responses
 
 **`council.py`** - The Core Logic
-- `stage1_collect_responses()`: Parallel queries to all 5 `COUNCIL_ROLES`, each with its own `system_prompt`; results are keyed by **role name** (e.g. "The Contrarian"), not the underlying model id
+- `build_history_messages()`: Turns a conversation's prior stored messages into a simplified alternating history (each prior user query paired with only the Chairman's `stage3.response` from that turn) - the internal Stage 1/2 deliberation is NOT replayed. Used to give follow-up messages context - see "Multi-turn Conversations" below
+- `stage1_collect_responses(user_query, history=None)`: Parallel queries to all 5 `COUNCIL_ROLES`, each with its own `system_prompt`; `history` (if given) is prepended to the current query so advisors see prior turns; results are keyed by **role name** (e.g. "The Contrarian"), not the underlying model id
 - `stage2_collect_rankings()`:
   - Anonymizes responses as "Response A, B, C, etc."
   - Creates `label_to_model` mapping (label -> advisor role name) for de-anonymization
   - Re-queries the same 5 roles (same personas) to evaluate and rank the anonymized responses (with strict format requirements)
   - Returns tuple: (rankings_list, label_to_model_dict)
   - Each ranking includes both raw text and `parsed_ranking` list
-- `stage3_synthesize_final()`: Chairman (`CHAIRMAN_MODEL`, no persona) synthesizes from all responses + rankings
+  - Does NOT take `history` - it only ever evaluates the current turn's Stage 1 responses
+- `stage3_synthesize_final(..., history=None)`: Chairman (`CHAIRMAN_MODEL`, no persona) synthesizes from all responses + rankings; `history` (if given) is prepended so the Chairman keeps continuity with its own earlier answers
 - `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
 - `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations, grouped by advisor role name
+- `run_full_council(user_query, history=None)`: Orchestrates all 3 stages, threading `history` into Stage 1 and Stage 3 (Stage 2 stays history-free)
 
 **`storage.py`**
 - JSON-based conversation storage in `data/conversations/`
@@ -47,7 +50,9 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
-- POST `/api/conversations/{id}/message` returns metadata in addition to stages
+- POST `/api/conversations/{id}/message`: non-streaming variant; runs the full pipeline and returns `{stage1, stage2, stage3, metadata}` in one JSON payload once everything completes. Kept as a simpler integration point, but the current frontend does NOT call it
+- POST `/api/conversations/{id}/message/stream`: the endpoint the frontend actually uses. Streams Server-Sent Events (`stage1_start`/`stage1_complete`, `stage2_start`/`stage2_complete`, `stage3_start`/`stage3_complete`, `title_complete`, `complete`, `error`) as each stage finishes, so the UI can show per-stage progress instead of waiting for the whole pipeline
+- Both endpoints call `council.build_history_messages(conversation["messages"])` **before** appending the new user message, and pass the result as `history` into `run_full_council()` / `stage1_collect_responses()` / `stage3_synthesize_final()` - see "Multi-turn Conversations" below
 - DELETE `/api/conversations/{id}` deletes a conversation, 404 if not found
 - Metadata includes: label_to_model mapping and aggregate_rankings
 
@@ -64,9 +69,10 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 - Delete is confirmed with `window.confirm()` before calling `onDeleteConversation`
 
 **`components/ChatInterface.jsx`**
-- Multiline textarea (3 rows, resizable)
+- Multiline textarea (3 rows, resizable), always rendered (not hidden after the first message - conversations support multiple turns)
 - Enter to send, Shift+Enter for new line
 - User messages wrapped in markdown-content class for padding
+- `handleSubmit()` treats any send after the first message as a follow-up (`conversation.messages.length > 0`) and shows a `window.confirm()` warning before calling `onSendMessage`, since every message re-runs the full 3-stage council from scratch - see "Multi-turn Conversations" below
 
 **`components/Stage1.jsx`**
 - Tab view of individual model responses
@@ -108,6 +114,13 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 - Frontend displays advisor names in **bold** for readability
 - Users see explanation that original evaluation used anonymous labels
 - This prevents bias while maintaining transparency
+
+### Multi-turn Conversations
+- Conversations are not limited to one question: the message input stays visible after the first exchange, and `storage.py`'s message list already supported multiple turns - only the frontend previously blocked sending a second message
+- Each message, including follow-ups, re-runs the **entire** 3-stage pipeline from scratch (5 advisors → peer rankings → Chairman). There is no lighter incremental/continuation mode - a follow-up is a brand-new council deliberation that happens to have context, not a cheap chat reply
+- `build_history_messages()` (in `council.py`) turns prior turns into a simplified alternating history: each prior user query, paired with only the **Chairman's final answer** (`stage3.response`) from that turn. The internal Stage 1/Stage 2 deliberation is intentionally NOT replayed into later prompts, to keep prompt size (and cost) bounded as a conversation grows
+- History is threaded into Stage 1 (so advisors' opinions are informed by prior turns) and Stage 3 (so the Chairman keeps continuity with its own earlier answers). Stage 2 (peer ranking) is intentionally left history-free, since it only ever evaluates the current turn's Stage 1 responses
+- Because every follow-up means 11 fresh model calls (5 Stage 1 + 5 Stage 2 + 1 Stage 3, all at `MODEL_EFFORT = "high"`), `ChatInterface.jsx` shows a `window.confirm()` warning before sending a follow-up so users can cancel instead of accidentally re-triggering a slow/expensive round
 
 ### Error Handling Philosophy
 - Continue with successful responses if some models fail (graceful degradation)
@@ -160,11 +173,11 @@ Both `stage1_collect_responses()` and `stage2_collect_rankings()` query the same
 2. **CORS Issues**: Frontend must match allowed origins in `main.py` CORS middleware
 3. **Ranking Parse Failures**: If models don't follow format, fallback regex extracts any "Response X" patterns in order
 4. **Missing Metadata**: Metadata is ephemeral (not persisted), only available in API responses
+5. **Follow-up Cost**: Every message, including follow-ups, re-runs all 11 model calls of the full pipeline - there's no lightweight "just answer inline" mode. A conversation with N turns costs N full council rounds, not N single-query calls
 
 ## Future Enhancement Ideas
 
 - Configurable council/chairman via UI instead of config file
-- Streaming responses instead of batch loading
 - Export conversations to markdown/PDF
 - Model performance analytics over time
 - Custom ranking criteria (not just accuracy/insight)
@@ -177,19 +190,21 @@ Use a small script with the `anthropic` SDK to verify API connectivity and test 
 ## Data Flow Summary
 
 ```
-User Query
+Prior conversation messages → build_history_messages() → history (user query + Chairman answer per turn)
     ↓
-Stage 1: Parallel queries → [individual responses]
+User Query (+ history)
     ↓
-Stage 2: Anonymize → Parallel ranking queries → [evaluations + parsed rankings]
+Stage 1: Parallel queries (with history) → [individual responses]
+    ↓
+Stage 2: Anonymize → Parallel ranking queries (no history) → [evaluations + parsed rankings]
     ↓
 Aggregate Rankings Calculation → [sorted by avg position]
     ↓
-Stage 3: Chairman synthesis with full context
+Stage 3: Chairman synthesis with full context (+ history)
     ↓
-Return: {stage1, stage2, stage3, metadata}
+Emit via SSE as each stage completes: stage1_complete → stage2_complete → stage3_complete → complete
     ↓
-Frontend: Display with tabs + validation UI
+Frontend: Display with tabs + validation UI, progressively as each stage arrives
 ```
 
-The entire flow is async/parallel where possible to minimize latency.
+The entire flow is async/parallel where possible to minimize latency. Every user message (first or follow-up) runs this full flow from scratch - `history` only adds context, it never skips a stage.

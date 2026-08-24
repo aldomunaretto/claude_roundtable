@@ -23,10 +23,22 @@ export default function ChatInterface({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSendMessage(input);
-      setInput('');
+    if (!input.trim() || isLoading) return;
+
+    // Every message re-runs the full council process from scratch (5 advisors,
+    // peer rankings, and Chairman synthesis) - warn before repeating that for
+    // a follow-up, since it's not a cheap incremental reply.
+    const isFollowUp = conversation.messages.length > 0;
+    if (isFollowUp && !window.confirm(
+      'Sending another message will run a brand-new council deliberation ' +
+      '(all 5 advisors, peer rankings, and Chairman synthesis) from scratch. ' +
+      'This takes a while and uses more API usage. Continue?'
+    )) {
+      return;
     }
+
+    onSendMessage(input);
+    setInput('');
   };
 
   const handleKeyDown = (e) => {
@@ -120,26 +132,24 @@ export default function ChatInterface({
         <div ref={messagesEndRef} />
       </div>
 
-      {conversation.messages.length === 0 && (
-        <form className="input-form" onSubmit={handleSubmit}>
-          <textarea
-            className="message-input"
-            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={3}
-          />
-          <button
-            type="submit"
-            className="send-button"
-            disabled={!input.trim() || isLoading}
-          >
-            Send
-          </button>
-        </form>
-      )}
+      <form className="input-form" onSubmit={handleSubmit}>
+        <textarea
+          className="message-input"
+          placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+          rows={3}
+        />
+        <button
+          type="submit"
+          className="send-button"
+          disabled={!input.trim() || isLoading}
+        >
+          Send
+        </button>
+      </form>
     </div>
   );
 }

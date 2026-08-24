@@ -5,17 +5,44 @@ from .claude_client import query_models_parallel, query_model
 from .config import COUNCIL_MODEL, COUNCIL_ROLES, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
 
 
-async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
+def build_history_messages(conversation_messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    """
+    Build a simplified conversation history for prompting: alternating user
+    queries and the Chairman's final answer from each prior turn (the internal
+    Stage 1/2 deliberation is not replayed, to keep prompts a reasonable size).
+
+    Args:
+        conversation_messages: Prior messages from storage, before the current
+            user message is added
+
+    Returns:
+        List of {'role', 'content'} dicts suitable for the Anthropic API
+    """
+    history = []
+    for msg in conversation_messages:
+        if msg["role"] == "user":
+            history.append({"role": "user", "content": msg["content"]})
+        elif msg["role"] == "assistant" and msg.get("stage3"):
+            history.append({"role": "assistant", "content": msg["stage3"].get("response", "")})
+    return history
+
+
+async def stage1_collect_responses(
+    user_query: str,
+    history: List[Dict[str, str]] = None
+) -> List[Dict[str, Any]]:
     """
     Stage 1: Collect individual responses from all council advisors.
 
     Args:
         user_query: The user's question
+        history: Prior conversation turns (see build_history_messages), so
+            follow-up questions are answered with context
 
     Returns:
         List of dicts with 'model' (advisor role name) and 'response' keys
     """
-    messages = [{"role": "user", "content": user_query}]
+    messages = (history or []) + [{"role": "user", "content": user_query}]
     models = [COUNCIL_MODEL] * len(COUNCIL_ROLES)
     systems = [role["system_prompt"] for role in COUNCIL_ROLES]
 
@@ -119,7 +146,8 @@ Now provide your evaluation and ranking:"""
 async def stage3_synthesize_final(
     user_query: str,
     stage1_results: List[Dict[str, Any]],
-    stage2_results: List[Dict[str, Any]]
+    stage2_results: List[Dict[str, Any]],
+    history: List[Dict[str, str]] = None
 ) -> Dict[str, Any]:
     """
     Stage 3: Chairman synthesizes final response.
@@ -128,6 +156,8 @@ async def stage3_synthesize_final(
         user_query: The original user query
         stage1_results: Individual model responses from Stage 1
         stage2_results: Rankings from Stage 2
+        history: Prior conversation turns (see build_history_messages), so
+            the Chairman keeps continuity with earlier answers
 
     Returns:
         Dict with 'model' and 'response' keys
@@ -160,7 +190,7 @@ Your task as Chairman is to synthesize all of this information into a single, co
 
 Provide a clear, well-reasoned final answer that represents the council's collective wisdom:"""
 
-    messages = [{"role": "user", "content": chairman_prompt}]
+    messages = (history or []) + [{"role": "user", "content": chairman_prompt}]
 
     # Query the chairman model
     response = await query_model(CHAIRMAN_MODEL, messages)
@@ -297,18 +327,26 @@ Title:"""
     return title
 
 
-async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
+async def run_full_council(
+    user_query: str,
+    history: List[Dict[str, str]] = None
+) -> Tuple[List, List, Dict, Dict]:
     """
     Run the complete 3-stage council process.
 
     Args:
         user_query: The user's question
+        history: Prior conversation turns (see build_history_messages), so
+            follow-up questions in the same conversation are answered with
+            context from earlier turns. Each call still runs the full 3-stage
+            deliberation from scratch (advisors, rankings, and Chairman) - the
+            history only gives it context, it doesn't skip any stage.
 
     Returns:
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
     # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query)
+    stage1_results = await stage1_collect_responses(user_query, history=history)
 
     # If no models responded successfully, return error
     if not stage1_results:
@@ -327,7 +365,8 @@ async def run_full_council(user_query: str) -> Tuple[List, List, Dict, Dict]:
     stage3_result = await stage3_synthesize_final(
         user_query,
         stage1_results,
-        stage2_results
+        stage2_results,
+        history=history
     )
 
     # Prepare metadata

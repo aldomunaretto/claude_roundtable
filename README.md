@@ -20,6 +20,8 @@ In a bit more detail, here is what happens when you submit a query:
 2. **Stage 2: Review**. Each advisor is given the responses of the others. Under the hood, the advisor identities are anonymized so that they can't play favorites when judging outputs. Each advisor ranks the responses in accuracy and insight, from their own thinking style's perspective.
 3. **Stage 3: Final response**. The designated Chairman of the Claude Roundtable takes all of the advisors' responses and compiles them into a single final answer that is presented to the user.
 
+You can keep a conversation going with follow-up questions - each one re-runs the entire 3-stage process above, but with the context of your earlier questions and the Chairman's previous final answers (the advisors' individual opinions and peer rankings from earlier turns aren't replayed, only the final answers, to keep prompts small). Since a follow-up means convening the whole council again rather than a quick incremental reply, the app asks you to confirm before sending one.
+
 Conversations are listed in the sidebar and can be deleted at any time by hovering over one and clicking the "×" button that appears (with a confirmation prompt).
 
 ## Vibe Code Alert
