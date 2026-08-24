@@ -42,11 +42,13 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 - JSON-based conversation storage in `data/conversations/`
 - Each conversation: `{id, created_at, messages[]}`
 - Assistant messages contain: `{role, stage1, stage2, stage3}`
+- `delete_conversation()` removes the conversation's JSON file, returns `False` if it didn't exist
 - Note: metadata (label_to_model, aggregate_rankings) is NOT persisted to storage, only returned via API
 
 **`main.py`**
 - FastAPI app with CORS enabled for localhost:5173 and localhost:3000
 - POST `/api/conversations/{id}/message` returns metadata in addition to stages
+- DELETE `/api/conversations/{id}` deletes a conversation, 404 if not found
 - Metadata includes: label_to_model mapping and aggregate_rankings
 
 ### Frontend Structure (`frontend/src/`)
@@ -54,7 +56,12 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 **`App.jsx`**
 - Main orchestration: manages conversations list and current conversation
 - Handles message sending and metadata storage
+- `handleDeleteConversation()` calls the API, removes the conversation from local state, and clears the current conversation if it was the one deleted
 - Important: metadata is stored in the UI state for display but not persisted to backend JSON
+
+**`components/Sidebar.jsx`**
+- Lists conversations; each item has a delete ("×") button, revealed on hover via CSS, with `stopPropagation` so it doesn't also select the conversation
+- Delete is confirmed with `window.confirm()` before calling `onDeleteConversation`
 
 **`components/ChatInterface.jsx`**
 - Multiline textarea (3 rows, resizable)

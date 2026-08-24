@@ -64,6 +64,25 @@ def get_conversation(conversation_id: str) -> Optional[Dict[str, Any]]:
         return json.load(f)
 
 
+def delete_conversation(conversation_id: str) -> bool:
+    """
+    Delete a conversation from storage.
+
+    Args:
+        conversation_id: Unique identifier for the conversation
+
+    Returns:
+        True if the conversation was deleted, False if it didn't exist
+    """
+    path = get_conversation_path(conversation_id)
+
+    if not os.path.exists(path):
+        return False
+
+    os.remove(path)
+    return True
+
+
 def save_conversation(conversation: Dict[str, Any]):
     """
     Save a conversation to storage.
