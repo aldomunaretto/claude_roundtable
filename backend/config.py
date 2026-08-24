@@ -22,5 +22,10 @@ CHAIRMAN_MODEL = "claude-opus-5"
 # Effort level applied to every request (max token/reasoning spend)
 MODEL_EFFORT = "high"
 
+# Fast/cheap model used only for conversation title generation
+# (Haiku doesn't support the `effort` parameter, so it's left unset)
+TITLE_MODEL = "claude-haiku-4-5"
+TITLE_MODEL_EFFORT = None
+
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"

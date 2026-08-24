@@ -1,5 +1,5 @@
 /**
- * API client for the LLM Council backend.
+ * API client for the Claude Roundtable backend.
  */
 
 const API_BASE = 'http://localhost:8001';

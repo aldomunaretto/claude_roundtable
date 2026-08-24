@@ -1,14 +1,16 @@
-# LLM Council
+# Claude Roundtable
 
-![llmcouncil](header.jpg)
+![Claude Roundtable](header.jpg)
 
-The idea of this repo is that instead of asking a question to a single Claude model, you group several Claude models (e.g. Opus, Sonnet, Haiku) into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses the Anthropic API to send your query to multiple Claude models, it then asks them to review and rank each other's work, and finally a Chairman model produces the final response.
+> This project is a fork of [Andrej Karpathy's `llm-council`](https://github.com/karpathy/llm-council), adapted to use Anthropic's Claude API exclusively (instead of OpenRouter) and rebranded as Claude Roundtable.
+
+The idea of this repo is that instead of asking a single question to a Claude model, you group several "seats" (by default all Claude Opus 5) into your "Claude Roundtable". This repo is a simple, local web app that essentially looks like ChatGPT except it uses the Anthropic API to send your query to multiple council seats, it then asks them to review and rank each other's work, and finally a Chairman model produces the final response.
 
 In a bit more detail, here is what happens when you submit a query:
 
 1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
 2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+3. **Stage 3: Final response**. The designated Chairman of the Claude Roundtable takes all of the model's responses and compiles them into a single final answer that is presented to the user.
 
 ## Vibe Code Alert
 
@@ -78,6 +80,12 @@ cd frontend
 npm run dev
 ```
 
+**Option 3: Docker Compose**
+```bash
+docker compose up --build
+```
+This builds and runs the backend and frontend in containers, reading `ANTHROPIC_API_KEY` from the `.env` file in the project root. Source files are volume-mounted so changes are picked up without rebuilding.
+
 Then open http://localhost:5173 in your browser.
 
 ## Tech Stack
@@ -86,3 +94,4 @@ Then open http://localhost:5173 in your browser.
 - **Frontend:** React + Vite, react-markdown for rendering
 - **Storage:** JSON files in `data/conversations/`
 - **Package Management:** uv for Python, npm for JavaScript
+- **Containers:** Docker Compose (`backend/Dockerfile`, `frontend/Dockerfile`)

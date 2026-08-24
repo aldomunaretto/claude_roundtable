@@ -15,7 +15,7 @@ _client = AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
 async def query_model(
     model: str,
     messages: List[Dict[str, str]],
-    effort: str = MODEL_EFFORT,
+    effort: Optional[str] = MODEL_EFFORT,
     timeout: float = 120.0
 ) -> Optional[Dict[str, Any]]:
     """
@@ -24,7 +24,8 @@ async def query_model(
     Args:
         model: Claude model identifier (e.g., "claude-opus-5")
         messages: List of message dicts with 'role' and 'content'
-        effort: Effort level ("low", "medium", "high", "xhigh", "max")
+        effort: Effort level ("low", "medium", "high", "xhigh", "max"), or
+            None to omit it (required for models that don't support it, e.g. Haiku)
         timeout: Request timeout in seconds
 
     Returns:
@@ -35,8 +36,8 @@ async def query_model(
             model=model,
             max_tokens=MAX_TOKENS,
             messages=messages,
-            output_config={"effort": effort},
             timeout=timeout,
+            **({"output_config": {"effort": effort}} if effort else {}),
         )
 
         content = "".join(

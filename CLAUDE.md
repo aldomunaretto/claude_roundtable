@@ -1,10 +1,10 @@
-# CLAUDE.md - Technical Notes for LLM Council
+# CLAUDE.md - Technical Notes for Claude Roundtable
 
 This file contains technical details, architectural decisions, and important implementation notes for future development sessions.
 
 ## Project Overview
 
-LLM Council is a 3-stage deliberation system where multiple LLMs collaboratively answer user questions. The key innovation is anonymized peer review in Stage 2, preventing models from playing favorites.
+Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.com/karpathy/llm-council)) is a 3-stage deliberation system where multiple LLMs collaboratively answer user questions. The key innovation is anonymized peer review in Stage 2, preventing models from playing favorites.
 
 ## Architecture
 
@@ -123,6 +123,14 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 
 ### Markdown Rendering
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
+
+### Docker Setup
+- `docker-compose.yml` (project root) defines `backend` and `frontend` services
+- `backend/Dockerfile`: Python 3.12-slim + `uv`, runs `uv run python -m backend.main` on port 8001
+- `frontend/Dockerfile`: Node 20-alpine, runs `npm run dev -- --host 0.0.0.0` on port 5173
+- `backend` reads `ANTHROPIC_API_KEY` from the root `.env` via `env_file` (marked `required: false` so compose doesn't fail if `.env` is missing)
+- Source directories are volume-mounted (not baked into the image) so local edits are picked up live; `./data` is mounted for conversation persistence
+- `frontend/vite.config.js` sets `server.host: true` and `watch.usePolling: true` so the dev server is reachable and detects file changes from bind mounts inside the container
 
 ### Model Configuration
 All council seats and the chairman are hardcoded in `backend/config.py` to `claude-opus-5` at `MODEL_EFFORT = "high"`. Since all seats share the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
