@@ -11,30 +11,32 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODELS` (list of Claude model identifiers; all 4 seats currently use `claude-opus-5`)
+- Contains `COUNCIL_MODEL` (the single Claude model backing every council seat, `claude-opus-5`)
+- Contains `COUNCIL_ROLES` (list of 5 dicts, each with `name` and `system_prompt`, defining the 5 advisor personas/thinking styles - see "Council Roles" below)
 - Contains `CHAIRMAN_MODEL` (model that synthesizes final answer, also `claude-opus-5`)
 - Contains `MODEL_EFFORT` ("high") - passed as `output_config.effort` on every request
+- Contains `TITLE_MODEL`/`TITLE_MODEL_EFFORT` (`claude-haiku-4-5`/`None`) for cheap conversation title generation
 - Uses environment variable `ANTHROPIC_API_KEY` from `.env`
 - Backend runs on **port 8001** (NOT 8000 - user had another app on 8000)
 
 **`claude_client.py`**
 - Uses the official `anthropic` Python SDK (`AsyncAnthropic`)
-- `query_model()`: Single async model query via `messages.create()`, passes `output_config={"effort": ...}`
-- `query_models_parallel()`: Parallel queries using `asyncio.gather()`. Returns a **list** of `(model, response)` tuples (NOT a dict) so duplicate model identifiers (e.g. 4 council seats all using `claude-opus-5`) don't collide/overwrite each other
+- `query_model()`: Single async model query via `messages.create()`, passes `output_config={"effort": ...}` (omitted when `effort` is falsy, since some models like Haiku 4.5 reject the param) and an optional `system` prompt (used to give a seat its persona)
+- `query_models_parallel()`: Parallel queries using `asyncio.gather()`, with an optional `systems` list (per-seat system prompts, aligned with `models`). Returns a **list** of `(model, response)` tuples (NOT a dict) so duplicate model identifiers (all 5 council seats use `claude-opus-5`) don't collide/overwrite each other
 - Returns dict with 'content' (concatenated text blocks from the response)
 - Graceful degradation: returns None on failure, continues with successful responses
 
 **`council.py`** - The Core Logic
-- `stage1_collect_responses()`: Parallel queries to all council models
+- `stage1_collect_responses()`: Parallel queries to all 5 `COUNCIL_ROLES`, each with its own `system_prompt`; results are keyed by **role name** (e.g. "The Contrarian"), not the underlying model id
 - `stage2_collect_rankings()`:
   - Anonymizes responses as "Response A, B, C, etc."
-  - Creates `label_to_model` mapping for de-anonymization
-  - Prompts models to evaluate and rank (with strict format requirements)
+  - Creates `label_to_model` mapping (label -> advisor role name) for de-anonymization
+  - Re-queries the same 5 roles (same personas) to evaluate and rank the anonymized responses (with strict format requirements)
   - Returns tuple: (rankings_list, label_to_model_dict)
   - Each ranking includes both raw text and `parsed_ranking` list
-- `stage3_synthesize_final()`: Chairman synthesizes from all responses + rankings
+- `stage3_synthesize_final()`: Chairman (`CHAIRMAN_MODEL`, no persona) synthesizes from all responses + rankings
 - `parse_ranking_from_text()`: Extracts "FINAL RANKING:" section, handles both numbered lists and plain format
-- `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations
+- `calculate_aggregate_rankings()`: Computes average rank position across all peer evaluations, grouped by advisor role name
 
 **`storage.py`**
 - JSON-based conversation storage in `data/conversations/`
@@ -95,8 +97,8 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 
 ### De-anonymization Strategy
 - Models receive: "Response A", "Response B", etc.
-- Backend creates mapping: `{"Response A": "claude-opus-5", ...}`
-- Frontend displays model names in **bold** for readability
+- Backend creates mapping: `{"Response A": "The Contrarian", ...}` (advisor role name, not the literal model id, since all seats share `claude-opus-5`)
+- Frontend displays advisor names in **bold** for readability
 - Users see explanation that original evaluation used anonymous labels
 - This prevents bias while maintaining transparency
 
@@ -124,6 +126,19 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 ### Markdown Rendering
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
+### Model Configuration
+All council seats and the chairman are hardcoded in `backend/config.py` to `claude-opus-5` at `MODEL_EFFORT = "high"`. Since all seats share the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
+
+### Council Roles
+`COUNCIL_ROLES` in `backend/config.py` defines 5 advisor personas via per-seat `system` prompts (not different models - all use `COUNCIL_MODEL`). They are thinking styles, not job titles, chosen to create natural tension:
+- **The Contrarian** - looks for what's wrong, missing, or likely to fail (downside)
+- **The First Principles Thinker** - strips away assumptions, asks what's actually being solved
+- **The Expansionist** - looks for missed upside and adjacent opportunities (upside, opposite of Contrarian)
+- **The Outsider** - zero context, reacts only to what's in front of it, catches blind spots
+- **The Executor** - only cares if/how it can be done fastest (opposite of First Principles)
+
+Both `stage1_collect_responses()` and `stage2_collect_rankings()` query the same 5 roles (same system prompts) so each advisor evaluates rankings from its own persona's perspective, not a neutral one.
+
 ### Docker Setup
 - `docker-compose.yml` (project root) defines `backend` and `frontend` services
 - `backend/Dockerfile`: Python 3.12-slim + `uv`, runs `uv run python -m backend.main` on port 8001
@@ -131,9 +146,6 @@ All ReactMarkdown components must be wrapped in `<div className="markdown-conten
 - `backend` reads `ANTHROPIC_API_KEY` from the root `.env` via `env_file` (marked `required: false` so compose doesn't fail if `.env` is missing)
 - Source directories are volume-mounted (not baked into the image) so local edits are picked up live; `./data` is mounted for conversation persistence
 - `frontend/vite.config.js` sets `server.host: true` and `watch.usePolling: true` so the dev server is reachable and detects file changes from bind mounts inside the container
-
-### Model Configuration
-All council seats and the chairman are hardcoded in `backend/config.py` to `claude-opus-5` at `MODEL_EFFORT = "high"`. Since all seats share the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
 
 ## Common Gotchas
 

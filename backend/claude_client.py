@@ -16,6 +16,7 @@ async def query_model(
     model: str,
     messages: List[Dict[str, str]],
     effort: Optional[str] = MODEL_EFFORT,
+    system: Optional[str] = None,
     timeout: float = 120.0
 ) -> Optional[Dict[str, Any]]:
     """
@@ -26,18 +27,25 @@ async def query_model(
         messages: List of message dicts with 'role' and 'content'
         effort: Effort level ("low", "medium", "high", "xhigh", "max"), or
             None to omit it (required for models that don't support it, e.g. Haiku)
+        system: Optional system prompt, e.g. to give the model a persona
         timeout: Request timeout in seconds
 
     Returns:
         Response dict with 'content', or None if failed
     """
+    extra_kwargs = {}
+    if effort:
+        extra_kwargs["output_config"] = {"effort": effort}
+    if system:
+        extra_kwargs["system"] = system
+
     try:
         response = await _client.messages.create(
             model=model,
             max_tokens=MAX_TOKENS,
             messages=messages,
             timeout=timeout,
-            **({"output_config": {"effort": effort}} if effort else {}),
+            **extra_kwargs,
         )
 
         content = "".join(
@@ -53,7 +61,8 @@ async def query_model(
 
 async def query_models_parallel(
     models: List[str],
-    messages: List[Dict[str, str]]
+    messages: List[Dict[str, str]],
+    systems: Optional[List[Optional[str]]] = None,
 ) -> List[Tuple[str, Optional[Dict[str, Any]]]]:
     """
     Query multiple models in parallel.
@@ -62,11 +71,19 @@ async def query_models_parallel(
         models: List of Claude model identifiers (may contain duplicates,
             e.g. several council seats sharing the same model)
         messages: List of message dicts to send to each model
+        systems: Optional list of per-seat system prompts, aligned with `models`
+            (e.g. one persona per council seat). Defaults to no system prompt.
 
     Returns:
         List of (model identifier, response dict or None) pairs, in the same
         order as `models`
     """
-    tasks = [query_model(model, messages) for model in models]
+    if systems is None:
+        systems = [None] * len(models)
+
+    tasks = [
+        query_model(model, messages, system=system)
+        for model, system in zip(models, systems)
+    ]
     responses = await asyncio.gather(*tasks)
     return list(zip(models, responses))

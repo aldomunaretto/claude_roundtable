@@ -2,30 +2,32 @@
 
 from typing import List, Dict, Any, Tuple
 from .claude_client import query_models_parallel, query_model
-from .config import COUNCIL_MODELS, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
+from .config import COUNCIL_MODEL, COUNCIL_ROLES, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
 
 
 async def stage1_collect_responses(user_query: str) -> List[Dict[str, Any]]:
     """
-    Stage 1: Collect individual responses from all council models.
+    Stage 1: Collect individual responses from all council advisors.
 
     Args:
         user_query: The user's question
 
     Returns:
-        List of dicts with 'model' and 'response' keys
+        List of dicts with 'model' (advisor role name) and 'response' keys
     """
     messages = [{"role": "user", "content": user_query}]
+    models = [COUNCIL_MODEL] * len(COUNCIL_ROLES)
+    systems = [role["system_prompt"] for role in COUNCIL_ROLES]
 
-    # Query all models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    # Query all advisors in parallel, each with its own persona
+    responses = await query_models_parallel(models, messages, systems=systems)
 
-    # Format results
+    # Format results, using each advisor's role name as the seat identifier
     stage1_results = []
-    for model, response in responses:
+    for role, (_, response) in zip(COUNCIL_ROLES, responses):
         if response is not None:  # Only include successful responses
             stage1_results.append({
-                "model": model,
+                "model": role["name"],
                 "response": response.get('content', '')
             })
 
@@ -93,18 +95,20 @@ FINAL RANKING:
 Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
+    models = [COUNCIL_MODEL] * len(COUNCIL_ROLES)
+    systems = [role["system_prompt"] for role in COUNCIL_ROLES]
 
-    # Get rankings from all council models in parallel
-    responses = await query_models_parallel(COUNCIL_MODELS, messages)
+    # Get rankings from all council advisors in parallel, each from their own perspective
+    responses = await query_models_parallel(models, messages, systems=systems)
 
     # Format results
     stage2_results = []
-    for model, response in responses:
+    for role, (_, response) in zip(COUNCIL_ROLES, responses):
         if response is not None:
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)
             stage2_results.append({
-                "model": model,
+                "model": role["name"],
                 "ranking": full_text,
                 "parsed_ranking": parsed
             })
@@ -130,16 +134,16 @@ async def stage3_synthesize_final(
     """
     # Build comprehensive context for chairman
     stage1_text = "\n\n".join([
-        f"Model: {result['model']}\nResponse: {result['response']}"
+        f"Advisor: {result['model']}\nResponse: {result['response']}"
         for result in stage1_results
     ])
 
     stage2_text = "\n\n".join([
-        f"Model: {result['model']}\nRanking: {result['ranking']}"
+        f"Advisor: {result['model']}\nRanking: {result['ranking']}"
         for result in stage2_results
     ])
 
-    chairman_prompt = f"""You are the Chairman of an LLM Council. Multiple AI models have provided responses to a user's question, and then ranked each other's responses.
+    chairman_prompt = f"""You are the Chairman of an advisory council. Several advisors, each reasoning from a different thinking style, have provided responses to a user's question, and then ranked each other's responses.
 
 Original Question: {user_query}
 

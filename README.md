@@ -4,13 +4,21 @@
 
 > This project is a fork of [Andrej Karpathy's `llm-council`](https://github.com/karpathy/llm-council), adapted to use Anthropic's Claude API exclusively (instead of OpenRouter) and rebranded as Claude Roundtable.
 
-The idea of this repo is that instead of asking a single question to a Claude model, you group several "seats" (by default all Claude Opus 5) into your "Claude Roundtable". This repo is a simple, local web app that essentially looks like ChatGPT except it uses the Anthropic API to send your query to multiple council seats, it then asks them to review and rank each other's work, and finally a Chairman model produces the final response.
+The idea of this repo is that instead of asking a single question to a Claude model, you consult a "Roundtable" of 5 advisors, each reasoning from a different, deliberately tension-creating thinking style (all backed by Claude Opus 5). This repo is a simple, local web app that essentially looks like ChatGPT except it uses the Anthropic API to send your query to each advisor, it then asks them to review and rank each other's work, and finally a Chairman model produces the final response.
+
+The 5 advisor roles are:
+
+1. **The Contrarian** - looks for what's wrong, missing, or likely to fail.
+2. **The First Principles Thinker** - strips away assumptions and asks what problem is actually being solved.
+3. **The Expansionist** - looks for the upside and adjacent opportunities everyone else is missing.
+4. **The Outsider** - has zero context and reacts purely to what's in front of them, catching blind spots experts miss.
+5. **The Executor** - only cares whether it can actually be done, and what the fastest first step is.
 
 In a bit more detail, here is what happens when you submit a query:
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the Claude Roundtable takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+1. **Stage 1: First opinions**. The user query is given to all 5 advisors individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
+2. **Stage 2: Review**. Each advisor is given the responses of the others. Under the hood, the advisor identities are anonymized so that they can't play favorites when judging outputs. Each advisor ranks the responses in accuracy and insight, from their own thinking style's perspective.
+3. **Stage 3: Final response**. The designated Chairman of the Claude Roundtable takes all of the advisors' responses and compiles them into a single final answer that is presented to the user.
 
 ## Vibe Code Alert
 
@@ -49,11 +57,13 @@ Get your API key at [console.anthropic.com](https://console.anthropic.com/). Mak
 Edit `backend/config.py` to customize the council:
 
 ```python
-COUNCIL_MODELS = [
-    "claude-opus-5",
-    "claude-opus-5",
-    "claude-opus-5",
-    "claude-opus-5",
+COUNCIL_MODEL = "claude-opus-5"
+COUNCIL_ROLES = [
+    {"name": "The Contrarian", "system_prompt": "..."},
+    {"name": "The First Principles Thinker", "system_prompt": "..."},
+    {"name": "The Expansionist", "system_prompt": "..."},
+    {"name": "The Outsider", "system_prompt": "..."},
+    {"name": "The Executor", "system_prompt": "..."},
 ]
 
 CHAIRMAN_MODEL = "claude-opus-5"
