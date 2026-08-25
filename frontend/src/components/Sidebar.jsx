@@ -6,6 +6,7 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
+  onOpenSettings,
 }) {
   const handleDelete = (e, conv) => {
     e.stopPropagation();
@@ -17,7 +18,17 @@ export default function Sidebar({
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h1>Claude Roundtable</h1>
+        <div className="sidebar-header-top">
+          <h1>Claude Roundtable</h1>
+          <button
+            className="settings-btn"
+            onClick={onOpenSettings}
+            aria-label="Council settings"
+            title="Council settings"
+          >
+            ⚙
+          </button>
+        </div>
         <button className="new-conversation-btn" onClick={onNewConversation}>
           + New Conversation
         </button>

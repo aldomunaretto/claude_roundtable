@@ -2,7 +2,24 @@
 
 from typing import List, Dict, Any, Tuple
 from .claude_client import query_models_parallel, query_model
-from .config import COUNCIL_MODEL, COUNCIL_ROLES, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
+from .config import DEFAULT_COUNCIL_ROLES, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
+
+
+def resolve_conversation_roles(conversation: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Resolve which council roles a conversation should use.
+
+    Args:
+        conversation: Conversation dict from storage
+
+    Returns:
+        conversation['council_roles'] if present and non-empty (conversations
+        created after the roles feature snapshot their selected roles at
+        creation time), otherwise DEFAULT_COUNCIL_ROLES as a fallback for
+        conversations created before this feature existed
+    """
+    roles = conversation.get("council_roles")
+    return roles if roles else DEFAULT_COUNCIL_ROLES
 
 
 def build_history_messages(conversation_messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -29,6 +46,7 @@ def build_history_messages(conversation_messages: List[Dict[str, Any]]) -> List[
 
 async def stage1_collect_responses(
     user_query: str,
+    roles: List[Dict[str, Any]],
     history: List[Dict[str, str]] = None
 ) -> List[Dict[str, Any]]:
     """
@@ -36,6 +54,8 @@ async def stage1_collect_responses(
 
     Args:
         user_query: The user's question
+        roles: Council roles for this conversation (see resolve_conversation_roles),
+            each with 'name'/'system_prompt'/'model'/'effort'
         history: Prior conversation turns (see build_history_messages), so
             follow-up questions are answered with context
 
@@ -43,15 +63,16 @@ async def stage1_collect_responses(
         List of dicts with 'model' (advisor role name) and 'response' keys
     """
     messages = (history or []) + [{"role": "user", "content": user_query}]
-    models = [COUNCIL_MODEL] * len(COUNCIL_ROLES)
-    systems = [role["system_prompt"] for role in COUNCIL_ROLES]
+    models = [role["model"] for role in roles]
+    systems = [role["system_prompt"] for role in roles]
+    efforts = [role.get("effort") for role in roles]
 
-    # Query all advisors in parallel, each with its own persona
-    responses = await query_models_parallel(models, messages, systems=systems)
+    # Query all advisors in parallel, each with its own persona/model/effort
+    responses = await query_models_parallel(models, messages, systems=systems, efforts=efforts)
 
     # Format results, using each advisor's role name as the seat identifier
     stage1_results = []
-    for role, (_, response) in zip(COUNCIL_ROLES, responses):
+    for role, (_, response) in zip(roles, responses):
         if response is not None:  # Only include successful responses
             stage1_results.append({
                 "model": role["name"],
@@ -63,7 +84,8 @@ async def stage1_collect_responses(
 
 async def stage2_collect_rankings(
     user_query: str,
-    stage1_results: List[Dict[str, Any]]
+    stage1_results: List[Dict[str, Any]],
+    roles: List[Dict[str, Any]]
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
     """
     Stage 2: Each model ranks the anonymized responses.
@@ -71,6 +93,8 @@ async def stage2_collect_rankings(
     Args:
         user_query: The original user query
         stage1_results: Results from Stage 1
+        roles: The same council roles that produced stage1_results (see
+            resolve_conversation_roles)
 
     Returns:
         Tuple of (rankings list, label_to_model mapping)
@@ -122,15 +146,16 @@ FINAL RANKING:
 Now provide your evaluation and ranking:"""
 
     messages = [{"role": "user", "content": ranking_prompt}]
-    models = [COUNCIL_MODEL] * len(COUNCIL_ROLES)
-    systems = [role["system_prompt"] for role in COUNCIL_ROLES]
+    models = [role["model"] for role in roles]
+    systems = [role["system_prompt"] for role in roles]
+    efforts = [role.get("effort") for role in roles]
 
     # Get rankings from all council advisors in parallel, each from their own perspective
-    responses = await query_models_parallel(models, messages, systems=systems)
+    responses = await query_models_parallel(models, messages, systems=systems, efforts=efforts)
 
     # Format results
     stage2_results = []
-    for role, (_, response) in zip(COUNCIL_ROLES, responses):
+    for role, (_, response) in zip(roles, responses):
         if response is not None:
             full_text = response.get('content', '')
             parsed = parse_ranking_from_text(full_text)
@@ -329,6 +354,7 @@ Title:"""
 
 async def run_full_council(
     user_query: str,
+    roles: List[Dict[str, Any]],
     history: List[Dict[str, str]] = None
 ) -> Tuple[List, List, Dict, Dict]:
     """
@@ -336,6 +362,7 @@ async def run_full_council(
 
     Args:
         user_query: The user's question
+        roles: Council roles for this conversation (see resolve_conversation_roles)
         history: Prior conversation turns (see build_history_messages), so
             follow-up questions in the same conversation are answered with
             context from earlier turns. Each call still runs the full 3-stage
@@ -346,7 +373,7 @@ async def run_full_council(
         Tuple of (stage1_results, stage2_results, stage3_result, metadata)
     """
     # Stage 1: Collect individual responses
-    stage1_results = await stage1_collect_responses(user_query, history=history)
+    stage1_results = await stage1_collect_responses(user_query, roles, history=history)
 
     # If no models responded successfully, return error
     if not stage1_results:
@@ -356,7 +383,7 @@ async def run_full_council(
         }, {}
 
     # Stage 2: Collect rankings
-    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results)
+    stage2_results, label_to_model = await stage2_collect_rankings(user_query, stage1_results, roles)
 
     # Calculate aggregate rankings
     aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)

@@ -11,11 +11,17 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # Model shared by every council seat
 COUNCIL_MODEL = "claude-opus-5"
 
-# Council seats - 5 distinct advisor thinking styles (not job titles or personas),
-# each backed by COUNCIL_MODEL. They create natural tension: Contrarian vs
-# Expansionist (downside vs upside), First Principles vs Executor (rethink vs
-# just do it), with the Outsider keeping everyone honest via fresh eyes.
-COUNCIL_ROLES = [
+# Effort level applied to every request (max token/reasoning spend)
+MODEL_EFFORT = "high"
+
+# Default council seats - 5 distinct advisor thinking styles (not job titles or
+# personas), used only to seed data/council_roles.json the first time it's read.
+# From then on the editable roster in that file is the source of truth (see
+# roles_storage.py); this constant is also the fallback for conversations
+# created before the roles feature existed. They create natural tension:
+# Contrarian vs Expansionist (downside vs upside), First Principles vs Executor
+# (rethink vs just do it), with the Outsider keeping everyone honest via fresh eyes.
+DEFAULT_COUNCIL_ROLES = [
     {
         "name": "The Contrarian",
         "system_prompt": (
@@ -26,6 +32,8 @@ COUNCIL_ROLES = [
             "you are the friend who saves people from a bad decision by asking the "
             "questions they are avoiding."
         ),
+        "model": COUNCIL_MODEL,
+        "effort": MODEL_EFFORT,
     },
     {
         "name": "The First Principles Thinker",
@@ -37,6 +45,8 @@ COUNCIL_ROLES = [
             "valuable thing you can say is that the question itself is the wrong "
             "one."
         ),
+        "model": COUNCIL_MODEL,
+        "effort": MODEL_EFFORT,
     },
     {
         "name": "The Expansionist",
@@ -48,6 +58,8 @@ COUNCIL_ROLES = [
             "job. You care about what happens if this works even better than "
             "expected."
         ),
+        "model": COUNCIL_MODEL,
+        "effort": MODEL_EFFORT,
     },
     {
         "name": "The Outsider",
@@ -57,6 +69,8 @@ COUNCIL_ROLES = [
             "purely to what's in front of you. You catch the curse of knowledge: "
             "things that are obvious to experts but confusing to everyone else."
         ),
+        "model": COUNCIL_MODEL,
+        "effort": MODEL_EFFORT,
     },
     {
         "name": "The Executor",
@@ -68,14 +82,13 @@ COUNCIL_ROLES = [
             "morning?'. If an idea sounds brilliant but has no clear first step, "
             "say so."
         ),
+        "model": COUNCIL_MODEL,
+        "effort": MODEL_EFFORT,
     },
 ]
 
 # Chairman model - synthesizes final response
 CHAIRMAN_MODEL = "claude-opus-5"
-
-# Effort level applied to every request (max token/reasoning spend)
-MODEL_EFFORT = "high"
 
 # Fast/cheap model used only for conversation title generation
 # (Haiku doesn't support the `effort` parameter, so it's left unset)
@@ -83,4 +96,14 @@ TITLE_MODEL = "claude-haiku-4-5"
 TITLE_MODEL_EFFORT = None
 
 # Data directory for conversation storage
+DATA_ROOT = "data"
 DATA_DIR = "data/conversations"
+
+# Fallback model list for the role-editor's model dropdown, used only when
+# GET /api/models can't reach the Anthropic API (e.g. invalid API key)
+FALLBACK_MODELS = [
+    {"id": "claude-opus-5", "display_name": "Claude Opus 5"},
+    {"id": "claude-sonnet-5", "display_name": "Claude Sonnet 5"},
+    {"id": "claude-haiku-4-5", "display_name": "Claude Haiku 4.5"},
+    {"id": "claude-fable-5", "display_name": "Claude Fable 5"},
+]

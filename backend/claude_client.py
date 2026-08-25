@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from anthropic import AsyncAnthropic
 
-from .config import ANTHROPIC_API_KEY, MODEL_EFFORT
+from .config import ANTHROPIC_API_KEY, MODEL_EFFORT, FALLBACK_MODELS
 
 MAX_TOKENS = 4096
 
@@ -63,6 +63,7 @@ async def query_models_parallel(
     models: List[str],
     messages: List[Dict[str, str]],
     systems: Optional[List[Optional[str]]] = None,
+    efforts: Optional[List[Optional[str]]] = None,
 ) -> List[Tuple[str, Optional[Dict[str, Any]]]]:
     """
     Query multiple models in parallel.
@@ -73,6 +74,8 @@ async def query_models_parallel(
         messages: List of message dicts to send to each model
         systems: Optional list of per-seat system prompts, aligned with `models`
             (e.g. one persona per council seat). Defaults to no system prompt.
+        efforts: Optional list of per-seat effort levels, aligned with `models`.
+            Defaults to MODEL_EFFORT for every seat (previous behavior).
 
     Returns:
         List of (model identifier, response dict or None) pairs, in the same
@@ -80,10 +83,34 @@ async def query_models_parallel(
     """
     if systems is None:
         systems = [None] * len(models)
+    if efforts is None:
+        efforts = [MODEL_EFFORT] * len(models)
 
     tasks = [
-        query_model(model, messages, system=system)
-        for model, system in zip(models, systems)
+        query_model(model, messages, effort=effort, system=system)
+        for model, system, effort in zip(models, systems, efforts)
     ]
     responses = await asyncio.gather(*tasks)
     return list(zip(models, responses))
+
+
+async def list_available_models() -> List[Dict[str, str]]:
+    """
+    List Claude models available to this API key, for the role editor's model
+    dropdown.
+
+    Returns:
+        List of {'id', 'display_name'} dicts. Falls back to FALLBACK_MODELS on
+        any error (invalid API key, network issue, etc.) so the dropdown is
+        never left empty.
+    """
+    try:
+        models = []
+        async for m in _client.models.list(limit=100):
+            models.append({"id": m.id, "display_name": m.display_name})
+            if len(models) >= 100:
+                break
+        return models or FALLBACK_MODELS
+    except Exception as e:
+        print(f"Error listing models: {e}")
+        return FALLBACK_MODELS

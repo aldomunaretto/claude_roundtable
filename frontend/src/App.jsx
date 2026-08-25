@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
+import NewConversationModal from './components/NewConversationModal';
+import RolesSettings from './components/RolesSettings';
 import { api } from './api';
 import './App.css';
 
@@ -9,6 +11,8 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isNewConversationModalOpen, setIsNewConversationModalOpen] = useState(false);
+  const [isRolesSettingsOpen, setIsRolesSettingsOpen] = useState(false);
 
   const loadConversations = async () => {
     try {
@@ -42,14 +46,19 @@ function App() {
     }
   }, [currentConversationId]);
 
-  const handleNewConversation = async () => {
+  const handleNewConversation = () => {
+    setIsNewConversationModalOpen(true);
+  };
+
+  const handleConfirmNewConversation = async (roleIds) => {
     try {
-      const newConv = await api.createConversation();
+      const newConv = await api.createConversation(roleIds);
       setConversations([
         { id: newConv.id, created_at: newConv.created_at, message_count: 0 },
         ...conversations,
       ]);
       setCurrentConversationId(newConv.id);
+      setIsNewConversationModalOpen(false);
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
@@ -204,11 +213,21 @@ function App() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
+        onOpenSettings={() => setIsRolesSettingsOpen(true)}
       />
       <ChatInterface
         conversation={currentConversation}
         onSendMessage={handleSendMessage}
         isLoading={isLoading}
+      />
+      <NewConversationModal
+        isOpen={isNewConversationModalOpen}
+        onClose={() => setIsNewConversationModalOpen(false)}
+        onConfirm={handleConfirmNewConversation}
+      />
+      <RolesSettings
+        isOpen={isRolesSettingsOpen}
+        onClose={() => setIsRolesSettingsOpen(false)}
       />
     </div>
   );

@@ -17,18 +17,89 @@ export const api = {
   },
 
   /**
-   * Create a new conversation.
+   * Create a new conversation with the given council role ids.
    */
-  async createConversation() {
+  async createConversation(roleIds) {
     const response = await fetch(`${API_BASE}/api/conversations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ role_ids: roleIds }),
     });
     if (!response.ok) {
       throw new Error('Failed to create conversation');
+    }
+    return response.json();
+  },
+
+  /**
+   * List the current council roles roster.
+   */
+  async listRoles() {
+    const response = await fetch(`${API_BASE}/api/roles`);
+    if (!response.ok) {
+      throw new Error('Failed to list roles');
+    }
+    return response.json();
+  },
+
+  /**
+   * Create a new council role.
+   */
+  async createRole(role) {
+    const response = await fetch(`${API_BASE}/api/roles`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(role),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to create role');
+    }
+    return response.json();
+  },
+
+  /**
+   * Update a council role. Only the fields present in partialFields are changed.
+   */
+  async updateRole(roleId, partialFields) {
+    const response = await fetch(`${API_BASE}/api/roles/${roleId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(partialFields),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || 'Failed to update role');
+    }
+    return response.json();
+  },
+
+  /**
+   * Delete a council role.
+   */
+  async deleteRole(roleId) {
+    const response = await fetch(`${API_BASE}/api/roles/${roleId}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      throw new Error('Failed to delete role');
+    }
+    return response.json();
+  },
+
+  /**
+   * List Claude models available for use in a role.
+   */
+  async listModels() {
+    const response = await fetch(`${API_BASE}/api/models`);
+    if (!response.ok) {
+      throw new Error('Failed to list models');
     }
     return response.json();
   },

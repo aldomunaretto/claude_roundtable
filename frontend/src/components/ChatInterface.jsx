@@ -60,8 +60,11 @@ export default function ChatInterface({
     );
   }
 
+  const activeRoleNames = conversation.council_roles?.map((r) => r.name).join(', ');
+
   return (
     <div className="chat-interface">
+      {activeRoleNames && <div className="active-council">Council: {activeRoleNames}</div>}
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
           <div className="empty-state">

@@ -1,0 +1,121 @@
+.picker-empty {
+  padding: 24px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.picker-description {
+  margin: 0 0 12px 0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.picker-actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.picker-link-btn {
+  background: none;
+  border: none;
+  color: #4a90e2;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+}
+
+.picker-link-btn:hover {
+  text-decoration: underline;
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.picker-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.picker-item:hover {
+  background: #f9fafb;
+}
+
+.picker-item input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+.picker-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.picker-item-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.picker-item-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-model {
+  background: #e8f0fe;
+  color: #4a90e2;
+}
+
+.badge-effort {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.picker-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.role-btn-primary {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+  background: #4a90e2;
+  border: 1px solid #4a90e2;
+  color: #fff;
+}
+
+.role-btn-primary:hover:not(:disabled) {
+  background: #357abd;
+  border-color: #357abd;
+}
+
+.role-btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
