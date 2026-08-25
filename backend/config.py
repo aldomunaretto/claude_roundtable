@@ -9,10 +9,10 @@ load_dotenv()
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
 # Model shared by every council seat
-COUNCIL_MODEL = "claude-opus-5"
+COUNCIL_MODEL = "claude-sonnet-5"
 
-# Effort level applied to every request (max token/reasoning spend)
-MODEL_EFFORT = "high"
+# Effort level applied to every council seat request (max token/reasoning spend)
+MODEL_EFFORT = "medium"
 
 # Default council seats - 5 distinct advisor thinking styles (not job titles or
 # personas), used only to seed data/council_roles.json the first time it's read.
@@ -87,8 +87,11 @@ DEFAULT_COUNCIL_ROLES = [
     },
 ]
 
-# Chairman model - synthesizes final response
+# Chairman model - synthesizes final response. Kept independent of MODEL_EFFORT
+# (which is the council seats' default) so changing the council's effort never
+# silently changes the Chairman's - it's out of scope for the roles editor.
 CHAIRMAN_MODEL = "claude-opus-5"
+CHAIRMAN_EFFORT = "high"
 
 # Fast/cheap model used only for conversation title generation
 # (Haiku doesn't support the `effort` parameter, so it's left unset)

@@ -11,9 +11,9 @@ Claude Roundtable (a fork of [Andrej Karpathy's `llm-council`](https://github.co
 ### Backend Structure (`backend/`)
 
 **`config.py`**
-- Contains `COUNCIL_MODEL`/`MODEL_EFFORT` (seed defaults, `claude-opus-5`/`"high"`)
+- Contains `COUNCIL_MODEL`/`MODEL_EFFORT` (seed defaults, `claude-sonnet-5`/`"medium"`)
 - Contains `DEFAULT_COUNCIL_ROLES` (list of 5 dicts, each with `name`/`system_prompt`/`model`/`effort`) - **only used to seed `data/council_roles.json` the first time it's read**, and as the fallback for conversations created before the roles-editor feature existed. The editable roster in that JSON file is the real source of truth at runtime - see `roles_storage.py` and "Council Roles Configuration" below
-- Contains `CHAIRMAN_MODEL` (model that synthesizes final answer, also `claude-opus-5`) - NOT configurable via the roles editor, out of scope on purpose
+- Contains `CHAIRMAN_MODEL`/`CHAIRMAN_EFFORT` (`claude-opus-5`/`"high"`) - NOT configurable via the roles editor, out of scope on purpose. `CHAIRMAN_EFFORT` is a separate constant from `MODEL_EFFORT` on purpose: `stage3_synthesize_final()` passes it explicitly to `query_model()` so changing the council's default effort never silently changes the Chairman's too
 - Contains `TITLE_MODEL`/`TITLE_MODEL_EFFORT` (`claude-haiku-4-5`/`None`) for cheap conversation title generation
 - Contains `DATA_ROOT` ("data", parent of `DATA_DIR`) and `FALLBACK_MODELS` (hardcoded model list used when `GET /api/models` can't reach the Anthropic API)
 - Uses environment variable `ANTHROPIC_API_KEY` from `.env`
@@ -151,7 +151,7 @@ This strict format allows reliable parsing while still getting thoughtful evalua
 - Each message, including follow-ups, re-runs the **entire** 3-stage pipeline from scratch (5 advisors → peer rankings → Chairman). There is no lighter incremental/continuation mode - a follow-up is a brand-new council deliberation that happens to have context, not a cheap chat reply
 - `build_history_messages()` (in `council.py`) turns prior turns into a simplified alternating history: each prior user query, paired with only the **Chairman's final answer** (`stage3.response`) from that turn. The internal Stage 1/Stage 2 deliberation is intentionally NOT replayed into later prompts, to keep prompt size (and cost) bounded as a conversation grows
 - History is threaded into Stage 1 (so advisors' opinions are informed by prior turns) and Stage 3 (so the Chairman keeps continuity with its own earlier answers). Stage 2 (peer ranking) is intentionally left history-free, since it only ever evaluates the current turn's Stage 1 responses
-- Because every follow-up means 11 fresh model calls (5 Stage 1 + 5 Stage 2 + 1 Stage 3, all at `MODEL_EFFORT = "high"`), `ChatInterface.jsx` shows a `window.confirm()` warning before sending a follow-up so users can cancel instead of accidentally re-triggering a slow/expensive round
+- Because every follow-up means 11 fresh model calls (5 Stage 1 + 5 Stage 2 at each role's own effort, defaulting to `MODEL_EFFORT = "medium"`, + 1 Stage 3 at `CHAIRMAN_EFFORT = "high"`), `ChatInterface.jsx` shows a `window.confirm()` warning before sending a follow-up so users can cancel instead of accidentally re-triggering a slow/expensive round
 
 ### Council Roles Configuration
 - The 5 original roles from `DEFAULT_COUNCIL_ROLES` are only a **seed**, not a fixed roster: `roles_storage.py` persists an editable roster to `data/council_roles.json`, and `RolesSettings.jsx` (opened from the sidebar's `⚙` button) gives full CRUD over it - `system_prompt`, `model`, and `effort` are editable per role, roles can be added, and any role (including the 5 originals) can be deleted. `is_default` is purely a UI badge, it protects nothing
@@ -187,7 +187,7 @@ All backend modules use relative imports (e.g., `from .config import ...`) not a
 All ReactMarkdown components must be wrapped in `<div className="markdown-content">` for proper spacing. This class is defined globally in `index.css`.
 
 ### Model Configuration
-The Chairman is still hardcoded in `backend/config.py` to `CHAIRMAN_MODEL = "claude-opus-5"` (out of scope for the roles editor). Council seats are NOT hardcoded anymore - each role in the (editable) roster carries its own `model`/`effort`, defaulting to `claude-opus-5`/`"high"` only as the initial seed. Because multiple seats can still end up pointing at the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
+The Chairman is still hardcoded in `backend/config.py` to `CHAIRMAN_MODEL = "claude-opus-5"` / `CHAIRMAN_EFFORT = "high"` (out of scope for the roles editor, and deliberately decoupled from the council's own `MODEL_EFFORT`). Council seats are NOT hardcoded anymore - each role in the (editable) roster carries its own `model`/`effort`, defaulting to `claude-sonnet-5`/`"medium"` only as the initial seed. Because multiple seats can still end up pointing at the same model identifier, `query_models_parallel()` must return a list (not a dict) to avoid collapsing duplicate keys - see `claude_client.py` notes above.
 
 ### Council Roles
 `DEFAULT_COUNCIL_ROLES` in `backend/config.py` seeds `data/council_roles.json` (see "Council Roles Configuration" above) with 5 advisor personas via per-seat `system_prompt`/`model`/`effort`. They are thinking styles, not job titles, chosen to create natural tension - this is the starting roster, fully editable/deletable at runtime, not a hardcoded constant used directly by the pipeline anymore:

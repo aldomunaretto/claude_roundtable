@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Tuple
 from .claude_client import query_models_parallel, query_model
-from .config import DEFAULT_COUNCIL_ROLES, CHAIRMAN_MODEL, TITLE_MODEL, TITLE_MODEL_EFFORT
+from .config import DEFAULT_COUNCIL_ROLES, CHAIRMAN_MODEL, CHAIRMAN_EFFORT, TITLE_MODEL, TITLE_MODEL_EFFORT
 
 
 def resolve_conversation_roles(conversation: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -218,7 +218,7 @@ Provide a clear, well-reasoned final answer that represents the council's collec
     messages = (history or []) + [{"role": "user", "content": chairman_prompt}]
 
     # Query the chairman model
-    response = await query_model(CHAIRMAN_MODEL, messages)
+    response = await query_model(CHAIRMAN_MODEL, messages, effort=CHAIRMAN_EFFORT)
 
     if response is None:
         # Fallback if chairman fails
