@@ -10,7 +10,6 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project
 
 # Copy project source
-COPY main.py ./
 COPY backend ./backend
 
 RUN uv sync --frozen

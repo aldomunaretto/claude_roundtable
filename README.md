@@ -1,6 +1,6 @@
 # Claude Roundtable
 
-![Claude Roundtable](header.jpg)
+![Claude Roundtable](img/header.jpeg)
 
 > This project is a fork of [Andrej Karpathy's `llm-council`](https://github.com/karpathy/llm-council), adapted to use Anthropic's Claude API exclusively (instead of OpenRouter) and rebranded as Claude Roundtable.
 
